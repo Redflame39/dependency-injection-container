@@ -11,23 +11,17 @@ namespace DependencyInjectionContainer.Provider
 {
     public class ConfigurationValidator
     {
-        private readonly Stack<Type> _nestedTypes;
-        private readonly DependenciesConfiguration _configuration;
-
-        public ConfigurationValidator(DependenciesConfiguration configuration)
+        public bool Validate(DependenciesConfiguration configuration)
         {
-            this._configuration = configuration;
-            this._nestedTypes = new Stack<Type>();
+            Stack<Type> nestedTypes = new Stack<Type>();
+            return configuration.DependenciesDictionary.Values.
+                All(listImplementations => listImplementations.
+                    All(implementation => CanBeCreated(implementation.ImplementationsType, configuration, nestedTypes)));
         }
 
-        private bool IsInContainer(Type type)
+        private bool CanBeCreated(Type instanceType, DependenciesConfiguration configuration, Stack<Type> nestedTypes)
         {
-            return this._configuration.DependenciesDictionary.ContainsKey(type);
-        }
-
-        private bool CanBeCreated(Type instanceType)
-        {
-            this._nestedTypes.Push(instanceType);
+            nestedTypes.Push(instanceType);
             var constructors = instanceType.GetConstructors(BindingFlags.Instance | BindingFlags.Public);
             foreach (var constructor in constructors)
             {
@@ -48,21 +42,19 @@ namespace DependencyInjectionContainer.Provider
                         parameterType = parameter.ParameterType;
                     }
 
-                    if (parameterType.IsInterface && IsInContainer(parameterType)) continue;
-                    this._nestedTypes.Pop();
+                    if (parameterType.IsInterface && IsInContainer(parameterType, configuration)) continue;
+                    nestedTypes.Pop();
                     return false;
                 }
             }
 
-            this._nestedTypes.Pop();
+            nestedTypes.Pop();
             return true;
         }
 
-        public bool Validate()
+        private bool IsInContainer(Type type, DependenciesConfiguration configuration)
         {
-            return this._configuration.DependenciesDictionary.Values.
-                All(implementations => implementations.
-                    All(implementation => CanBeCreated(implementation.ImplementationsType)));
+            return configuration.DependenciesDictionary.ContainsKey(type);
         }
     }
 }

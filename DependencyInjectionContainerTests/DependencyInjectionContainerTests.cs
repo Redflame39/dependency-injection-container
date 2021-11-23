@@ -26,7 +26,7 @@ namespace TestProject1
         }
 
         [Test]
-        public void RegisteringDependencies()
+        public void DependepciesAreRegisteredTest()
         {
             bool v1 = dependencies.DependenciesDictionary.ContainsKey(typeof(IInterface));
             bool v2 = dependencies.DependenciesDictionary.ContainsKey(typeof(IStrange));
@@ -37,7 +37,7 @@ namespace TestProject1
         }
 
         [Test]
-        public void RegisterDoubleDependency()
+        public void MultipleDependenciesRegisteredTest()
         {
             var containers = dependencies1.DependenciesDictionary[typeof(IInterface)];
             var type1 = containers[0].ImplementationsType;
@@ -50,18 +50,18 @@ namespace TestProject1
         }
 
         [Test]
-        public void SimpleDependencyProvider()
+        public void SingleDependencyProviderTest()
         {
             var provider = new DependencyProvider(dependencies);
             var result = provider.Resolve<IStrange>();
             var innerInterface = ((Strange)result).iInterface;
             Assert.AreEqual(result.GetType(), typeof(Strange), "Wrong type of resolving result.");
-            Assert.AreEqual(innerInterface == null, false, "Error in creating an instance of dependency.");
+            Assert.IsTrue(innerInterface != null, "Error in creating an instance of dependency.");
             Assert.AreEqual(innerInterface.GetType(), typeof(Class), "Wrong type of created dependency.");
         }
 
         [Test]
-        public void DoubleDependencyProvider()
+        public void MultipleDependencyProviderTest()
         {
             var provider = new DependencyProvider(dependencies1);
             var result = provider.Resolve<IStrange>();
@@ -70,7 +70,7 @@ namespace TestProject1
         }
 
         [Test]
-        public void SingletonObj()
+        public void SingletonDependencyTest()
         {
             var dep1 = new DependenciesConfiguration();
             dep1.Register<IInterface, Class>(LifeCycle.Singleton);
@@ -79,27 +79,29 @@ namespace TestProject1
             var obj11 = provider.Resolve<IStrange>();
             var obj12 = provider.Resolve<IStrange>();
             var b1 = obj11 == obj12;
-
             int count1 = provider._singletons.Count;
             Assert.AreEqual(count1, 2, "Wrong number of Singleton objects in Dictionary for Singleton");
+            Assert.IsTrue(b1, "Different objects for singleton object.");
 
+        }
+
+        [Test]
+        public void InstancePerDependencyTest()
+        {
             var dep2 = new DependenciesConfiguration();
             dep2.Register<IInterface, Class>(LifeCycle.InstancePerDependency);
             dep2.Register<IStrange, Strange>(LifeCycle.InstancePerDependency);
             var provider2 = new DependencyProvider(dep2);
             var obj21 = provider2.Resolve<IStrange>();
             var obj22 = provider2.Resolve<IStrange>();
-            var b2 = obj21 == obj22;
-
+            var b2 = obj21 != obj22;
             int count2 = provider2._singletons.Count;
             Assert.AreEqual(count2, 0, "Wrong number of Singleton objects in Dictionary for InstancePerDependency");
-
-            Assert.IsTrue(b1, "Different objects for singleton object.");
-            Assert.IsFalse(b2, "The same object using InstancePerDependency");
+            Assert.IsTrue(b2, "Two objects should differ from each other if their dependency was registered with InstancePerDependency lifecycle");
         }
 
         [Test]
-        public void ImplNumberProvider()
+        public void ImplementationNumberProviderTest()
         {
             var provider = new DependencyProvider(dependencies1);
             var result = provider.Resolve<IStrange>(ImplementationNumber.First);

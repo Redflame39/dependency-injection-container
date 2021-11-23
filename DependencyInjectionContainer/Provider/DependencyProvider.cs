@@ -17,8 +17,8 @@ namespace DependencyInjectionContainer.Provider
 
         public DependencyProvider(DependenciesConfiguration configuration)
         {
-            ConfigurationValidator configValidator = new ConfigurationValidator(configuration);
-            if (!configValidator.Validate())
+            ConfigurationValidator configValidator = new ConfigurationValidator();
+            if (!configValidator.Validate(configuration))
             {
                 throw new ArgumentException("Wrong configuration");
             }
@@ -58,7 +58,6 @@ namespace DependencyInjectionContainer.Provider
                 return CreateInstance(implType);
             }
 
-            ////////
             if (IsInSingletons(dependencyType, implType, number))
             {
                 return this._singletons[dependencyType]
@@ -68,7 +67,6 @@ namespace DependencyInjectionContainer.Provider
             var result = CreateInstance(implType);
             this.AddToSingletons(dependencyType, result, number);
             return result;
-            ///
         }
 
         private ImplementationContainer GetImplContainerByDependencyType(Type dependencyType, ImplementationNumber number)
@@ -111,7 +109,6 @@ namespace DependencyInjectionContainer.Provider
                     {
                         break;
                     }
-
                     generatedParams.Add(parameter);
                 }
 
