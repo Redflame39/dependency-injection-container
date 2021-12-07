@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using DependencyInjectionContainer.Configuration;
 using DependencyInjectionContainer.Configuration.ImplementationData;
@@ -12,6 +13,7 @@ namespace DependencyInjectionContainer.Provider
 {
     public class DependencyProvider
     {
+        private Mutex mutex = new Mutex();
         private readonly DependenciesConfiguration _configuration;
         public readonly Dictionary<Type, List<SingletonContainer>> _singletons;
 
@@ -35,6 +37,7 @@ namespace DependencyInjectionContainer.Provider
 
         public object Resolve(Type dependencyType, ImplementationNumber number = ImplementationNumber.Any)
         {
+            mutex.WaitOne();
             object result;
             if (this.IsIEnumerable(dependencyType))
             {
@@ -46,7 +49,7 @@ namespace DependencyInjectionContainer.Provider
                 Type requiredType = GetGeneratedType(dependencyType, container.ImplementationsType);
                 result = this.ResolveNonIEnumerable(requiredType, container.TimeToLive, dependencyType, container.ImplNumber);
             }
-
+            mutex.ReleaseMutex();
             return result;
         }
 

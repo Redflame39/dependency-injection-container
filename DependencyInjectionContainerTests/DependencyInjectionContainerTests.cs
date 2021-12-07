@@ -3,6 +3,11 @@ using DependencyInjectionContainer.Configuration;
 using DependencyInjectionContainer.Configuration.ImplementationData;
 using DependencyInjectionContainer.Provider;
 using LifeCycle = DependencyInjectionContainer.Configuration.ImplementationData.LifeCycle;
+using System;
+using DependencyInjectionContainerTests;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace TestProject1
 {
@@ -10,6 +15,7 @@ namespace TestProject1
     {
         DependenciesConfiguration dependencies;
         DependenciesConfiguration dependencies1;
+        ConcurrentDictionary<int, IInterface> concurrectDict = new ConcurrentDictionary<int, IInterface>();
 
         [SetUp]
         public void Setup()
@@ -28,12 +34,13 @@ namespace TestProject1
         [Test]
         public void DependepciesAreRegisteredTest()
         {
-            bool v1 = dependencies.DependenciesDictionary.ContainsKey(typeof(IInterface));
-            bool v2 = dependencies.DependenciesDictionary.ContainsKey(typeof(IStrange));
+            bool hasInterf = dependencies.DependenciesDictionary.ContainsKey(typeof(IInterface));
+            bool hasStrange = dependencies.DependenciesDictionary.ContainsKey(typeof(IStrange));
             int num = dependencies.DependenciesDictionary.Keys.Count;
-            Assert.IsTrue(v1, "Dependency dictionary hasn't key IInterface.");
-            Assert.IsTrue(v2, "Dependency dictionary hasn't key IStrange.");
-            Assert.AreEqual(num, 2, "Dependency dictionary has another number of keys.");
+            int expectedNum = 2;
+            Assert.IsTrue(hasInterf, "Dependency dictionary hasn't key IInterface.");
+            Assert.IsTrue(hasStrange, "Dependency dictionary hasn't key IStrange.");
+            Assert.AreEqual(num, expectedNum, "Dependency dictionary has another number of keys.");
         }
 
         [Test]
@@ -109,7 +116,79 @@ namespace TestProject1
             Assert.AreEqual(result.GetType(), typeof(Strange), "Wrong type for First dependency.");
             Assert.AreEqual(result1.GetType(), typeof(Strange2), "Wrong type for Second dependency");
         }
+
+        [Test]
+        public void NotValidConfigurationTest()
+        {
+            var config = new DependenciesConfiguration();
+            config.Register<IStrange, Strange>();
+            Assert.Throws<ArgumentException>(delegate { new DependencyProvider(config); });
+        }
+
+        [Test]
+        public void DeepNestingTest()
+        {
+            var config = new DependenciesConfiguration();
+            config.Register<A, AImpl>();
+            config.Register<B, BImpl>();
+            config.Register<C, CImpl>();
+            config.Register<D, DImpl>();
+            config.Register<E, EImpl>();
+            config.Register<G, GImpl>(LifeCycle.Singleton);
+
+            var provider = new DependencyProvider(config);
+            A a = provider.Resolve<A>();
+            B b = provider.Resolve<B>();
+            C c = provider.Resolve<C>();
+            D d = provider.Resolve<D>();
+            E e = provider.Resolve<E>();
+            G g = provider.Resolve<G>();
+
+            var bDepG = b.GetG();
+            var eDepG = e.GetG();
+
+            bool singletonsRefersToSameObject = bDepG == eDepG;
+
+            Assert.IsTrue(singletonsRefersToSameObject);
+        }
+
+        [Test]
+        public void MultithreadingSingletonTest()
+        {
+            var config = new DependenciesConfiguration();
+            config.Register<IInterface, Class>(LifeCycle.Singleton);
+            DependencyProvider provider = new DependencyProvider(config);
+            List<Thread> runnedThreads = new List<Thread>();
+            for (int i = 0; i < 1000; i++)
+            {
+                ThreadStart start = new ThreadStart(delegate { ThreadCreator(provider, i); });
+                Thread t = new Thread(start);
+                runnedThreads.Add(t);
+            }
+            foreach(var t in runnedThreads)
+            {
+                t.Start();
+            }
+            foreach (var t in runnedThreads)
+            {
+                t.Join();
+            }
+            var ClassExpected = provider.Resolve<IInterface>();
+            foreach (var t in runnedThreads)
+            {
+                var ClassActual = concurrectDict[t.ManagedThreadId];
+                bool eq = ClassExpected == ClassActual;
+                Assert.IsTrue(eq);
+            }
+        }
+
+        private void ThreadCreator(DependencyProvider provider, int index)
+        {
+            concurrectDict[Thread.CurrentThread.ManagedThreadId] = provider.Resolve<IInterface>();
+        }
     }
+
+    
 
     interface IInterface
     {
@@ -192,3 +271,7 @@ namespace TestProject1
         }
     }
 }
+
+// add test for non valid configuration
+// 5 levels A -> B -> (C -> (D, E -> G Singleton), G Singleton)
+// multithreading singleton test
